@@ -8,6 +8,12 @@ export const GOLIAT: Look = { tunic: '#6b3a2a', skin: '#b8805e', hair: '#2a1e18'
 /** El escudero que va delante de Goliat (1 S 17:7, 41). */
 export const ESCUDERO: Look = { tunic: '#8f3a2a', feathers: true, shield: true, skin: '#c99670' };
 
+/** Une el final del camino con la llegada al campamento. */
+export const ENTRADA = {
+  texto: 'Llegó al campamento cuando el ejército salía a formar en orden de batalla y daba el grito de guerra. Israel y los filisteos se pusieron en orden, ejército frente a ejército.',
+  ref: '1 Samuel 17:20–21',
+};
+
 export type NpcId = 'guarda' | 'eliab' | 'abinadab' | 'sama' | 'saul' | 'sold1' | 'sold2' | 'fil1' | 'fil2' | 'fil3';
 export interface CastMember { id: NpcId; name: string; x: number; z: number; yaw: number; look: Look; side: 'israel' | 'filisteo' }
 

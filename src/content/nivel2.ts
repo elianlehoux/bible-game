@@ -2,6 +2,12 @@ import { L, NARRADOR as N, type Line } from './comun';
 
 // Nivel 2: el encargo de Isaí (1 Samuel 17:12–20).
 
+/** Une el final del nivel 1 (la noche en el redil) con la mañana siguiente. */
+export const ENTRADA = {
+  texto: 'Los tres hijos mayores de Isaí habían seguido a Saúl a la guerra. David iba y venía para apacentar las ovejas de su padre en Belén.',
+  ref: '1 Samuel 17:13–15',
+};
+
 export const MISIONES = {
   isai: 'Tu padre Isaí viene a buscarte',
   tareas: 'Deja las ovejas con el pastor y recoge la carga en el patio de tu casa',

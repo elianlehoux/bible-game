@@ -13,6 +13,8 @@ import { mat, mesh } from '../util/materials';
 export const REDIL = { x: 8, z: 6, r: 5.2, gap: Math.PI, gapHalf: 0.42 };
 /** Matorral y cueva donde se esconde el león. */
 export const GUARIDA: Point = { x: -32, z: 30 };
+/** Matorral más cerca del redil, donde el león acecha antes de atacar. */
+export const MATORRAL: Point = { x: -10, z: 19 };
 /** Casa de Isaí, a la entrada del pueblo, con su patio. */
 export const CASA_ISAI = { x: -10, z: -27, rot: 0.15 };
 export const PATIO: Point = { x: -10, z: -21.5 };
@@ -108,6 +110,11 @@ export function createBelen(lowEnd: boolean, hora: 'tarde' | 'manana'): World {
   trees(scene, wild, colliders);
   const thicket = scatter(22, 300, () => [GUARIDA.x + (rand() * 2 - 1) * 9, GUARIDA.z + (rand() * 2 - 1) * 7], (x, z) => Math.hypot(x - GUARIDA.x + 3, z - GUARIDA.z - 3) > 3.2, 1.6);
   for (const b of thicket) b.s = 0.9 + rand() * 0.7;
+  // Matorral cercano: una mata espesa del lado de afuera, para que el león salga de atrás.
+  for (let i = 0; i < 9; i++) {
+    const a = 0.55 + (i / 8) * 2.1, r = 1.6 + (i % 3) * 0.7;
+    thicket.push({ x: MATORRAL.x + Math.cos(a) * r * -0.9, z: MATORRAL.z + Math.sin(a) * r, s: 1.1 + (i % 2) * 0.4 });
+  }
   const scrub = scatter(40, 600, () => [(rand() * 2 - 1) * 55, (rand() * 2 - 1) * 45], (x, z) => free(x, z, 0) && Math.hypot(x - REDIL.x, z - REDIL.z) > 9, 3);
   for (const b of scrub) b.s = 0.5 + rand() * 0.5;
   bushes(scene, thicket.concat(scrub));

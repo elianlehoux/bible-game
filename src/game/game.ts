@@ -142,13 +142,7 @@ export class Game {
     this.mode = 'card';
     this.input.active = false;
     this.hud.hideAll();
-    this.hud.card(this.def, NIVELES.length, () => {
-      this.mode = 'play';
-      this.input.active = true;
-      this.hud.showQuest(true);
-      this.snapCamera();
-      this.level.begin();
-    });
+    this.hud.card(this.def, NIVELES.length, () => this.startLevel());
   }
 
   private complete(): void {
@@ -163,7 +157,21 @@ export class Game {
       (end.querySelector('button') as HTMLButtonElement).focus({ preventScroll: true });
       return;
     }
-    this.hud.fade(() => this.showCard(n + 1));
+    // Sin menú entre niveles: una pantalla con el texto que los une y sigue solo.
+    const next = NIVELES[n];
+    this.mode = 'card';
+    this.input.active = false;
+    this.hud.hideAll();
+    this.hud.chapter(next, NIVELES.length, () => this.load(next.n), () => this.startLevel());
+  }
+
+  /** Empieza el nivel cargado. */
+  private startLevel(): void {
+    this.mode = 'play';
+    this.input.active = true;
+    this.hud.showQuest(true);
+    this.snapCamera();
+    this.level.begin();
   }
 
   restart(): void {
@@ -187,6 +195,7 @@ export class Game {
     }
     this.level.world.update(this.T);
     this.dialog.update(rdt);
+    this.hud.hold(this.dialog.open);
     this.hud.update(rdt);
     this.updateUi();
     this.updateCamera(rdt);
@@ -292,6 +301,21 @@ export class Game {
     this.look.set(this.pl.x, ty + Math.max(0, CAM_PITCH0 - p) * 3.5, this.pl.z);
   }
 
+  /**
+   * Si una loma o una orilla queda entre la cámara y David (al bajar a un arroyo, por ejemplo),
+   * sube la cámara lo justo para seguir viéndolo.
+   */
+  private clearView(): void {
+    const ax = this.pl.x, az = this.pl.z, ay = H(ax, az) + 1.3, c = this.camPos;
+    let lift = 0;
+    for (let i = 1; i <= 8; i++) {
+      const t = i / 9, x = ax + (c.x - ax) * t, z = az + (c.z - az) * t, y = ay + (c.y - ay) * t;
+      const need = H(x, z) + 0.6 - y;
+      if (need > 0) lift = Math.max(lift, need / t);
+    }
+    c.y += Math.min(lift, 14);
+  }
+
   private updateCamera(rdt: number): void {
     if (this.mode === 'title') {
       // Vuelta lenta alrededor de David.
@@ -310,6 +334,7 @@ export class Game {
       rate = shot.rate ?? 3;
     } else {
       this.exploreShot();
+      this.clearView();
     }
     const ground = H(this.camPos.x, this.camPos.z) + 1.4;
     if (this.camPos.y < ground) this.camPos.y = ground;

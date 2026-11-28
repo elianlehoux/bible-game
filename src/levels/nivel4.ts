@@ -5,7 +5,7 @@ import { START, START_YAW, GOLIAT_POS, ESCUDERO_OFFSET, ENGAGE_R, AIM_DIST, STON
 import { createValle } from '../world/valle';
 import { createPerson, animatePerson, type Person } from '../actors/person';
 import { DAVID, DAVID_CARGA, DAVID_ARMADURA } from '../content/comun';
-import { ELENCO, GOLIAT, ESCUDERO, DIALOGOS as D, MISIONES, ZONAS, AVISOS, type NpcId } from '../content/nivel4';
+import { ELENCO, GOLIAT, ESCUDERO, DIALOGOS as D, MISIONES, ZONAS, AVISOS, type NpcId, ENTRADA } from '../content/nivel4';
 import { clamp, lerpAngle, smooth } from '../util/math';
 import { softDot } from '../util/materials';
 import { Fx } from '../game/fx';
@@ -27,6 +27,7 @@ export const nivel4: LevelDef = {
   titulo: 'El valle de Ela',
   ref: '1 Samuel 17:20–58',
   resumen: 'Deja la carga, busca a tus hermanos y escucha al gigante. Convence al rey Saúl, junta cinco piedras lisas del arroyo y enfrenta a Goliat.',
+  entrada: ENTRADA,
   create: (ctx) => new Valle(ctx),
 };
 

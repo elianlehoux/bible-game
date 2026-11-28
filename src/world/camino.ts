@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { vnoise, smooth, clamp, rand } from '../util/math';
 import { createTerrainMesh, createWaterMesh, setGround, type Collider, type Point, type World } from './ground';
 import { createSky } from './sky';
-import { trees, rocks, bushes, grass, scatter, tents, Flags, type Spot, type TentDef } from './kit';
+import { trees, rocks, bushes, grass, scatter, tents, house, Flags, type Spot, type TentDef } from './kit';
 import { mat, mesh } from '../util/materials';
 
 // El camino de Belén al valle de Ela: baja de los montes de Judá hacia la Sefelá (1 S 17:20).
@@ -18,6 +18,24 @@ export const DERRUMBE = { z0: -40, z1: -82 };
 export const ARROYO = { z: -111, half: 7.5 };
 export const CORNISA = { z0: -140, z1: -186, half: 1.5 };
 export const WATER_Y = -0.2;
+
+/**
+ * Canaletas de la ladera: por cada una baja una piedra cada tantos segundos, siempre por el mismo
+ * lugar y con el mismo ritmo, así se puede mirar y pasar entre una y otra.
+ */
+export const CANALETAS = [
+  { z: -47, period: 4.4, offset: 0 },
+  { z: -56, period: 4.4, offset: 2.2 },
+  { z: -65, period: 3.8, offset: 1.0 },
+  { z: -74, period: 3.8, offset: 2.9 },
+];
+/** Distancia del camino a la boca de cada canaleta (arriba de la ladera). */
+export const CANALETA_TOP = 16;
+const enCanaleta = (z: number): number => {
+  let k = 0;
+  for (const c of CANALETAS) k = Math.max(k, smooth(1.9, 0.9, Math.abs(z - c.z)));
+  return k;
+};
 
 /** Descansos: si David cae, vuelve al último que pasó. */
 export const DESCANSOS: Point[] = [Z_START, -32, -92, -128, -192].map((z) => ({ x: px(z), z }));
@@ -49,16 +67,21 @@ function heightBase(x: number, z: number): number {
   let h = base + smooth(5, 22, ax) * 12 + (vnoise(x * 0.06, z * 0.06) - 0.5) * 2 * (0.3 + smooth(4, 18, ax) * 2.2);
   // Ladera del derrumbe: más empinada del lado +x.
   const der = smooth(DERRUMBE.z0 + 6, DERRUMBE.z0 - 2, z) * smooth(DERRUMBE.z1 - 6, DERRUMBE.z1 + 2, z);
-  if (dx > 0) h += der * smooth(3, 16, dx) * 7;
+  if (dx > 0) h += der * smooth(3, 16, dx) * 7 - der * enCanaleta(z) * smooth(2, 6, dx) * 0.6;
   // Cornisa: pared de roca a un lado y barranco al otro.
   const c = inCornisa(z);
   if (c > 0) {
     if (dx > CORNISA.half) h += c * smooth(CORNISA.half, CORNISA.half + 2.5, dx) * 8;
     if (dx < -CORNISA.half) h -= c * smooth(CORNISA.half, CORNISA.half + 3.5, -dx) * (10 + smooth(4, 14, -dx) * 3);
   }
-  // Cauce del arroyo, atravesando el camino.
-  const r = Math.abs(z - ARROYO.z);
-  h -= smooth(ARROYO.half + 2.5, ARROYO.half - 1, r) * (h - WATER_Y + 1.1);
+  // Bajada al arroyo: el camino baja de a poco hasta la orilla, sin barranco.
+  const r = Math.abs(z - ARROYO.z), valle = smooth(ARROYO.half + 28, ARROYO.half + 2, r);
+  if (valle > 0) {
+    const orilla = WATER_Y + 0.45 + Math.max(0, r - ARROYO.half) * 0.1 + smooth(5, 24, ax) * 9 + (vnoise(x * 0.08, z * 0.08) - 0.5) * 0.5;
+    h = h * (1 - valle) + orilla * valle;
+  }
+  // Cauce: una orilla baja y el lecho bajo el agua.
+  h -= smooth(ARROYO.half + 1.2, ARROYO.half - 1.2, r) * (h - (WATER_Y - 1.1));
   return h;
 }
 
@@ -86,6 +109,7 @@ const PAL = {
   grassA: new THREE.Color('#93a04f'), grassB: new THREE.Color('#7d8c43'), dry: new THREE.Color('#bba96c'),
   path: new THREE.Color('#bea172'), rock: new THREE.Color('#cbbfa2'), rockD: new THREE.Color('#a99d82'),
   bed: new THREE.Color('#9b8f6c'), gravel: new THREE.Color('#cdbf9f'),
+  chute: new THREE.Color('#9a8b6e'), pathD: new THREE.Color('#a48a5f'),
 };
 
 export interface Camino extends World {
@@ -97,11 +121,12 @@ export function createCamino(lowEnd: boolean): Camino {
   const scene = new THREE.Scene();
   setGround(heightCamino);
   createTerrainMesh(scene, {
-    width: 130, depth: 290, cz: -112, cell: lowEnd ? 2 : 1.5, height: heightBase,
+    width: 130, depth: 304, cz: -106, cell: lowEnd ? 2 : 1.5, height: heightBase,
     color(c, x, y, z, slope, r) {
       const ax = Math.abs(x - px(z)), riv = Math.abs(z - ARROYO.z);
       if (riv < ARROYO.half + 0.5 && y < WATER_Y + 0.4) c.copy(PAL.bed);
       else if (riv < ARROYO.half + 2.5) c.copy(PAL.gravel);
+      else if (enCanaleta(z) > 0.5 && x - px(z) > -6 && z < DERRUMBE.z0 && z > DERRUMBE.z1) c.copy(ax < 1.3 ? PAL.pathD : PAL.chute);
       else if (ax < 1.3 + (inCornisa(z) > 0.5 ? 0.2 : 0)) c.copy(PAL.path);
       else if (slope > 0.45) c.copy(r < 0.5 ? PAL.rock : PAL.rockD);
       else {
@@ -127,6 +152,15 @@ export function createCamino(lowEnd: boolean): Camino {
     return g;
   });
 
+  // Arriba de cada canaleta, un montón de piedras sueltas: de ahí bajan.
+  for (const c of CANALETAS) {
+    const x = px(c.z) + CANALETA_TOP + 1.5, y = heightBase(x, c.z);
+    for (let i = 0; i < 5; i++) {
+      const r = 0.5 + (i % 3) * 0.25;
+      scene.add(mesh(new THREE.DodecahedronGeometry(r, 0), mat(i % 2 ? '#b3a68a' : '#c4b89c'), x + (i - 2) * 0.5, y + r * 0.6, c.z + ((i * 7) % 5 - 2) * 0.45));
+    }
+  }
+
   // Descansos: un mojón de piedras en cada uno.
   for (const d of DESCANSOS.slice(1)) {
     const g = new THREE.Group();
@@ -135,6 +169,17 @@ export function createCamino(lowEnd: boolean): Camino {
     for (let i = 0; i < 4; i++) g.add(mesh(new THREE.DodecahedronGeometry(0.42 - i * 0.08, 0), mat('#d8cfb8'), 0, 0.3 + i * 0.5, 0));
     scene.add(g);
   }
+
+  // Atrás queda Belén: el mojón de la salida (el mismo del nivel 2) y las casas del pueblo.
+  const salida = new THREE.Group();
+  salida.position.set(px(Z_START + 2) - 3.4, heightBase(px(Z_START + 2) - 3.4, Z_START + 2), Z_START + 2);
+  for (let i = 0; i < 4; i++) salida.add(mesh(new THREE.DodecahedronGeometry(0.45 - i * 0.08, 0), mat('#cfc3a7'), 0, 0.3 + i * 0.55, 0));
+  scene.add(salida);
+  const pueblo: [number, number, number, number, number][] = [
+    [-7, 16, 0.2, 4.2, 3.4], [6, 18, -0.3, 3.6, 3.2], [-12, 22, 0.5, 4.6, 3.6], [1, 25, 0.1, 5, 3.6],
+    [10, 26, -0.6, 3.8, 3], [-5, 30, 0.3, 4.4, 3.4], [-16, 31, 0.7, 3.6, 3.2], [7, 33, -0.2, 4, 3.4],
+  ];
+  for (const [dx, z, rot, w, d] of pueblo) house(scene, px(z) + dx, z, rot, w, d, 2.6, colliders);
 
   // Al final se ve el campamento de Israel, abajo en el valle.
   const flags = new Flags();
@@ -147,9 +192,11 @@ export function createCamino(lowEnd: boolean): Camino {
   // Vegetación en las laderas, lejos del camino, del cauce y de la cornisa.
   const free = (x: number, z: number) => {
     const ax = Math.abs(x - px(z));
-    return ax > 5 && Math.abs(z - ARROYO.z) > ARROYO.half + 3 && !(inCornisa(z) > 0.1 && ax < 9) && z < Z_START + 8 && z > -236;
+    // La ladera de las canaletas queda despejada para ver bajar las piedras.
+    const ladera = z < DERRUMBE.z0 + 8 && z > DERRUMBE.z1 - 8 && x - px(z) > -3 && x - px(z) < 26;
+    return ax > 5 && !ladera && Math.abs(z - ARROYO.z) > ARROYO.half + 3 && !(inCornisa(z) > 0.1 && ax < 9) && z < Z_START + 8 && z > -236;
   };
-  const gen = (): [number, number] => { const z = Z_START + 6 - rand() * 245; return [px(z) + (rand() * 2 - 1) * 50, z]; };
+  const gen = (): [number, number] => { const z = Z_START + 2 - rand() * 241; return [px(z) + (rand() * 2 - 1) * 50, z]; };
   const tr: Spot[] = scatter(70, 1400, gen, free, 5);
   for (const t of tr) t.s = 0.7 + rand() * 0.6;
   trees(scene, tr.filter((_, i) => i % 3 === 0), colliders, true);

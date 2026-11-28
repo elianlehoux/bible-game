@@ -4,10 +4,10 @@ import { createBelen, REDIL, PATIO, SALIDA } from '../world/belen';
 import { createSheep, updateSheep, type Sheep } from '../actors/sheep';
 import { createPerson, animatePerson, type Person } from '../actors/person';
 import { DAVID, DAVID_CARGA, ISAI, PASTOR } from '../content/comun';
-import { DIALOGOS as D, MISIONES, ITEMS, AVISOS } from '../content/nivel2';
+import { DIALOGOS as D, MISIONES, ITEMS, AVISOS, ENTRADA } from '../content/nivel2';
 import { lerpAngle, rand } from '../util/math';
 import { mat, mesh } from '../util/materials';
-import type { Level, LevelCtx, LevelDef, Target } from './types';
+import type { CamShot, Level, LevelCtx, LevelDef, Target } from './types';
 
 type Stage = 'isai' | 'tareas' | 'partir' | 'fin';
 type ItemId = (typeof ITEMS)[number]['id'];
@@ -17,6 +17,7 @@ export const nivel2: LevelDef = {
   titulo: 'El encargo de Isaí',
   ref: '1 Samuel 17:12–20',
   resumen: 'Tu padre te pide llevar comida a tus hermanos, que están en la guerra. Deja el rebaño en buenas manos, prepara la carga y sal hacia el valle de Ela.',
+  entrada: ENTRADA,
   create: (ctx) => new Encargo(ctx),
 };
 
@@ -57,6 +58,9 @@ class Encargo implements Level {
   private loaded = false;
   private items: { id: ItemId; g: THREE.Group; got: boolean }[];
   private T0 = 0;
+  /** Toma final: David sale por el camino del oeste (-1 = todavía no). */
+  private endT = -1;
+  private shot: CamShot = { pos: new THREE.Vector3(), look: new THREE.Vector3(), rate: 0.9 };
 
   constructor(private ctx: LevelCtx) {
     this.world = createBelen(ctx.lowEnd, 'manana');
@@ -128,8 +132,29 @@ class Encargo implements Level {
     return out;
   }
 
+  canMove(): boolean { return this.endT < 0; }
+
+  camera(): CamShot | null {
+    if (this.endT < 0) return null;
+    // David se va por el camino; atrás queda Belén.
+    const pl = this.ctx.player, y = H(pl.x, pl.z);
+    this.shot.pos.set(pl.x + 6, y + 4, pl.z + 7);
+    this.shot.look.set(pl.x - 4, y + 1.2, pl.z - 1);
+    return this.shot;
+  }
+
   update(dt: number): void {
     this.T0 += dt;
+    if (this.endT >= 0) {
+      // Camina solo hacia el oeste unos segundos y termina el nivel.
+      const pl = this.ctx.player;
+      this.endT += dt;
+      pl.yaw = lerpAngle(pl.yaw, -Math.PI / 2 - 0.25, 1 - Math.exp(-dt * 4));
+      pl.x -= dt * 2.6 * Math.cos(0.25);
+      pl.z -= dt * 2.6 * Math.sin(0.25);
+      animatePerson(pl.person, 0.45, dt, this.ctx.T);
+      if (this.endT > 3.2) { this.endT = -2; this.ctx.complete(); }
+    }
     const pl = this.ctx.player, T = this.ctx.T;
     for (const s of this.flock) updateSheep(s, dt, T);
 
@@ -162,7 +187,7 @@ class Encargo implements Level {
     if (Math.hypot(pl.x - SALIDA.x, pl.z - SALIDA.z) < 3.5 && !this.ctx.dialog.open && this.stage !== 'fin') {
       if (this.stage === 'partir') {
         this.stage = 'fin';
-        this.ctx.dialog.say(D.partida, () => this.ctx.complete());
+        this.ctx.dialog.say(D.partida, () => { this.endT = 0; });
       } else if (this.stage === 'tareas' && this.T0 > 1) {
         this.T0 = -2; // no repetir el aviso enseguida
         const falta = [!this.pastorOk && AVISOS.pastor, this.items.some((i) => !i.got) && AVISOS.carga].filter(Boolean).join(' y ');

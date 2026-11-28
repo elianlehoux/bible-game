@@ -34,6 +34,7 @@ export class Dialog {
 
   /** Completa la línea actual o pasa a la siguiente. */
   advance(): void {
+    if (!this.open) return;
     const l = this.lines[this.i];
     if (this.shown < l.text.length) {
       this.shown = l.text.length;

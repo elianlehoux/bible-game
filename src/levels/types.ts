@@ -85,5 +85,7 @@ export interface LevelDef {
   titulo: string;
   ref: string;
   resumen: string;
+  /** Texto que une este nivel con el anterior (se muestra al pasar de uno a otro). */
+  entrada?: { texto: string; ref?: string };
   create(ctx: LevelCtx): Level;
 }

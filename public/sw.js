@@ -1,6 +1,6 @@
 // Modo sin conexión: guarda lo que se descarga y lo sirve si no hay red.
 // Cambia CACHE para forzar que todos bajen la versión nueva.
-const CACHE = 'honda-v2';
+const CACHE = 'honda-v3';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

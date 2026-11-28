@@ -22,7 +22,10 @@ export class Hud {
   private timerEl = $('timer');
   private cardEl = $('levelCard');
   private fadeEl = $('fade');
+  private chapEl = $('chapter');
   private toastT = 0;
+  private toastQueue: { text: string; t: number }[] = [];
+  private held = false;
   private areaT = 0;
   private cardDone: (() => void) | null = null;
 
@@ -66,6 +69,35 @@ export class Hud {
     $<HTMLButtonElement>('cardBtn').focus({ preventScroll: true });
   }
 
+  /**
+   * Paso entre niveles: funde a una pantalla oscura con el texto que une un nivel con el otro.
+   * `onBlack` se llama ya a oscuras (para cargar el nivel nuevo); `onDone`, al volver a la imagen.
+   */
+  chapter(def: LevelDef, total: number, onBlack: () => void, onDone: () => void): void {
+    const el = this.chapEl;
+    $('chapKicker').textContent = `Nivel ${def.n} de ${total}`;
+    $('chapTitle').textContent = def.titulo;
+    $('chapText').textContent = def.entrada?.texto ?? def.resumen;
+    $('chapRef').textContent = def.entrada?.ref ?? def.ref;
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('on'));
+    const words = (def.entrada?.texto ?? def.resumen).split(/\s+/).length;
+    let left = false;
+    const leave = () => {
+      if (left) return;
+      left = true;
+      el.removeEventListener('click', leave);
+      el.classList.remove('on');
+      setTimeout(() => { el.hidden = true; onDone(); }, 600);
+    };
+    setTimeout(() => {
+      onBlack();
+      // Se puede saltar tocando, pero no antes de un momento (para no saltarlo sin querer).
+      setTimeout(() => el.addEventListener('click', leave), 1200);
+      setTimeout(leave, Math.max(4500, 1500 + words * 330));
+    }, 650);
+  }
+
   closeCard(): void {
     this.cardEl.hidden = true;
     this.cardDone = null;
@@ -80,10 +112,30 @@ export class Hud {
     }, 380);
   }
 
-  toast(text: string, secs = 2.4): void {
+  /**
+   * Aviso breve. Dura lo suficiente para leerlo (según el largo) y, si ya hay uno en pantalla,
+   * espera su turno en vez de taparlo. Con `now` se muestra enseguida (una caída, un golpe).
+   */
+  toast(text: string, secs = 2.4, now = false): void {
+    const t = Math.max(secs, 1.4 + text.split(/\s+/).length * 0.3);
+    if (!now && (this.held || (!this.toastEl.hidden && this.toastT > 0.3))) {
+      if (this.toastEl.textContent !== text && !this.toastQueue.some((q) => q.text === text)) this.toastQueue.push({ text, t });
+      return;
+    }
+    this.showToast(text, t);
+  }
+
+  /** Mientras hay un diálogo abierto, los avisos esperan (no se leen dos cosas a la vez). */
+  hold(on: boolean): void {
+    if (on === this.held) return;
+    this.held = on;
+    this.toastEl.style.visibility = on ? 'hidden' : '';
+  }
+
+  private showToast(text: string, t: number): void {
     this.toastEl.textContent = text;
     this.toastEl.hidden = false;
-    this.toastT = secs;
+    this.toastT = t;
   }
 
   area(name: string, sub?: string): void {
@@ -122,7 +174,16 @@ export class Hud {
   joystick(show: boolean): void { this.joyEl.hidden = !show; }
 
   update(dt: number): void {
-    if (this.toastT > 0 && (this.toastT -= dt) <= 0) this.toastEl.hidden = true;
+    if (this.held) return;
+    if (this.toastT <= 0 && this.toastEl.hidden && this.toastQueue.length) {
+      const next = this.toastQueue.shift()!;
+      this.showToast(next.text, next.t);
+    }
+    if (this.toastT > 0 && (this.toastT -= dt) <= 0) {
+      this.toastEl.hidden = true;
+      const next = this.toastQueue.shift();
+      if (next) this.showToast(next.text, next.t);
+    }
     if (this.areaT > 0 && (this.areaT -= dt) <= 0) this.areaEl.classList.add('fade');
   }
 
@@ -133,6 +194,7 @@ export class Hud {
     this.action(null);
     this.joystick(false);
     this.toastEl.hidden = true;
+    this.toastQueue.length = 0;
     this.timer(null);
   }
 }
