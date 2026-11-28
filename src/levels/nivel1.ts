@@ -29,6 +29,41 @@ export const nivel1: LevelDef = {
 const inPen = (x: number, z: number, pad = 0): boolean => Math.hypot(x - REDIL.x, z - REDIL.z) < REDIL.r - pad;
 /** Punto justo afuera de la entrada del redil. */
 const GATE: Point = { x: REDIL.x + Math.cos(REDIL.gap) * (REDIL.r + 1.6), z: REDIL.z + Math.sin(REDIL.gap) * (REDIL.r + 1.6) };
+/** Punto justo adentro de la entrada. */
+const GATE_IN: Point = { x: REDIL.x + Math.cos(REDIL.gap) * (REDIL.r - 1.8), z: REDIL.z + Math.sin(REDIL.gap) * (REDIL.r - 1.8) };
+/** Radio por el que se rodea el muro por fuera. */
+const AROUND_R = REDIL.r + 1.7;
+
+const angleOf = (x: number, z: number): number => Math.atan2(z - REDIL.z, x - REDIL.x);
+const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+
+/** Distancia del centro del redil al segmento (ax,az)–(bx,bz). */
+function centerToSeg(ax: number, az: number, bx: number, bz: number): number {
+  const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((REDIL.x - ax) * dx + (REDIL.z - az) * dz) / l2)) : 0;
+  return Math.hypot(ax + dx * t - REDIL.x, az + dz * t - REDIL.z);
+}
+
+/**
+ * Próximo punto al que camina algo que está afuera del redil para llegar a (tx, tz) sin atravesar
+ * el muro: lo rodea por fuera y entra por la abertura.
+ */
+function rodear(x: number, z: number, tx: number, tz: number): Point {
+  const r = Math.hypot(x - REDIL.x, z - REDIL.z);
+  if (r < REDIL.r - 0.4) return { x: tx, z: tz }; // ya está adentro
+  const inside = Math.hypot(tx - REDIL.x, tz - REDIL.z) < REDIL.r + 0.3;
+  const sa = angleOf(x, z);
+  if (inside) {
+    // Frente a la abertura: entra derecho. Si no, primero va hasta la entrada.
+    if (Math.abs(wrap(sa - REDIL.gap)) < REDIL.gapHalf * 0.8 && r < REDIL.r + 2.6) return GATE_IN;
+    tx = GATE.x; tz = GATE.z;
+    if (Math.hypot(x - GATE.x, z - GATE.z) < 0.8) return GATE_IN;
+  }
+  // Si el camino directo choca con el muro, da la vuelta por fuera.
+  if (centerToSeg(x, z, tx, tz) > REDIL.r + 0.9) return { x: tx, z: tz };
+  const diff = wrap(angleOf(tx, tz) - sa), a = sa + Math.sign(diff) * Math.min(Math.abs(diff), 0.6);
+  return { x: REDIL.x + Math.cos(a) * AROUND_R, z: REDIL.z + Math.sin(a) * AROUND_R };
+}
 
 class Pastor implements Level {
   world: World;
@@ -135,11 +170,10 @@ class Pastor implements Level {
       if (s.state === 'loose' && Math.hypot(p.x - pl.x, p.z - pl.z) < FOLLOW_R && this.stage === 'volver') s.state = 'follow';
       if (s.state === 'follow') {
         const k = followers++;
-        // Si David está dentro del redil y la oveja afuera, primero va a la entrada.
-        let tx = pl.x, tz = pl.z;
-        const sheepIn = inPen(p.x, p.z), davidIn = inPen(pl.x, pl.z, -0.5);
-        if (!sheepIn && davidIn && Math.hypot(p.x - GATE.x, p.z - GATE.z) > 1.4 && Math.hypot(p.x - REDIL.x, p.z - REDIL.z) > REDIL.r) { tx = GATE.x; tz = GATE.z; }
-        const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz), keep = tx === pl.x ? 1.8 + k * 0.45 : 0;
+        // Sigue a David sin atravesar el muro: lo rodea y entra por la abertura.
+        const wp = rodear(p.x, p.z, pl.x, pl.z), toDavid = wp.x === pl.x && wp.z === pl.z;
+        const tx = wp.x, tz = wp.z;
+        const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz), keep = toDavid ? 1.8 + k * 0.45 : 0;
         if (d > keep) {
           const v = Math.min(d - keep, dt * (d > 6 ? 7 : 5));
           let nx = p.x + (dx / d) * v, nz = p.z + (dz / d) * v;
