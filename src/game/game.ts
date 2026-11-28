@@ -27,6 +27,10 @@ const GOLIAT_SCALE = GOLIAT.scale ?? 1;
 /** La cámara empieza detrás de David, que llega mirando hacia el campamento. */
 const CAM_YAW0 = START_YAW + Math.PI - 0.35;
 const PICK_R = 1.7;
+/** Inclinación de la cámara: positiva mira desde arriba, negativa mira hacia las colinas. */
+const CAM_PITCH0 = 0.42, CAM_PITCH_MIN = -0.3, CAM_PITCH_MAX = 1.05, CAM_DIST = 10.3;
+/** Después de mover la cámara a mano, espera esto antes de volver a seguir a David. */
+const MANUAL_HOLD = 1.2;
 const freshState = (): State => ({ food: false, saul: false, stones: 0, won: false, ammo: 5 });
 
 export interface World { props: Props; water: Water; sun: SunRig }
@@ -44,7 +48,11 @@ export class Game {
   private flock: Sheep[] = [];
   private stones: StoneObj[];
   private camYaw = CAM_YAW0;
+  private camPitch = CAM_PITCH0;
   private dragYaw = 0;
+  private dragPitch = 0;
+  private camDragging = false;
+  private manualHold = 0;
   private near: Target | null = null;
   private zone: Zone | '' = '';
   private slow = 0;
@@ -79,13 +87,25 @@ export class Game {
     this.input.onAction = () => this.action();
     this.input.onTap = () => { if (this.dialog.open) this.dialog.advance(); };
     this.input.drag = {
-      start: () => { this.dragYaw = this.camYaw; if (this.mode === 'aim' && !this.dialog.open) this.sling.beginDrag(); },
+      start: () => {
+        this.dragYaw = this.camYaw;
+        this.dragPitch = this.camPitch;
+        if (this.mode === 'explore') this.camDragging = true;
+        if (this.mode === 'aim' && !this.dialog.open) this.sling.beginDrag();
+      },
       move: (dx, dy) => {
         if (this.dialog.open) return;
         if (this.mode === 'aim') this.sling.dragTo(dx, dy);
-        else if (this.mode === 'explore') this.camYaw = this.dragYaw - dx * 0.006;
+        else if (this.mode === 'explore') {
+          // Arrastrar hacia arriba mira hacia arriba (las colinas); hacia abajo, desde más alto.
+          this.camYaw = this.dragYaw - dx * 0.006;
+          this.camPitch = clamp(this.dragPitch + dy * 0.005, CAM_PITCH_MIN, CAM_PITCH_MAX);
+        }
       },
-      end: (cancelled) => { if (this.mode === 'aim' && !this.dialog.open && !cancelled) this.throwStone(); },
+      end: (cancelled) => {
+        if (this.camDragging) { this.camDragging = false; this.manualHold = MANUAL_HOLD; }
+        if (this.mode === 'aim' && !this.dialog.open && !cancelled) this.throwStone();
+      },
     };
     (document.getElementById('endQuote') as HTMLElement).textContent = FINAL.cita;
     (document.getElementById('endNote') as HTMLElement).textContent = FINAL.nota;
@@ -110,6 +130,7 @@ export class Game {
     this.spawn();
     this.mode = 'explore';
     this.camYaw = CAM_YAW0;
+    this.camPitch = CAM_PITCH0;
     this.zone = 'israel';
     this.cut = null;
     this.slow = 0;
@@ -124,6 +145,7 @@ export class Game {
   /** dt: tiempo de juego (puede ir en cámara lenta). rdt: tiempo real. */
   update(dt: number, rdt: number): void {
     if (this.slow > 0) this.slow -= rdt;
+    if (this.manualHold > 0) this.manualHold -= rdt;
     this.T += dt;
     this.updatePlayer(dt, rdt);
     this.checkEngage();
@@ -134,7 +156,7 @@ export class Game {
     if (this.mode === 'cutscene') this.updateCutscene(dt);
     this.world.props.update(this.T);
     this.world.water.update(this.T);
-    this.fx.update(dt, this.T, this.tmp.set(this.player.x, H(this.player.x, this.player.z), this.player.z));
+    this.fx.update(dt);
     this.dialog.update(rdt);
     this.hud.update(rdt);
     this.updateUi();
@@ -268,12 +290,24 @@ export class Game {
       [pl.x, pl.z] = this.resolve(pl.x + mx * v * dt, pl.z + mz * v * dt, 0.45);
       pl.yaw = lerpAngle(pl.yaw, Math.atan2(mx, mz), 1 - Math.exp(-dt * 12));
       speed = mag;
+      this.followCamera(-iy / mag, mag, rdt);
       this.checkZone();
     }
     if (this.mode === 'approach' || this.mode === 'aim' || this.mode === 'cutscene') pl.yaw = lerpAngle(pl.yaw, Math.atan2(this.sling.forward.x, this.sling.forward.z), 1 - Math.exp(-dt * 10));
     pl.p.g.position.set(pl.x, H(pl.x, pl.z), pl.z);
     pl.p.g.rotation.y = pl.yaw;
     animatePerson(pl.p, speed, dt, this.T);
+  }
+
+  /**
+   * Al caminar, la cámara vuelve sola detrás de David y gira con él. No sigue si el jugador está
+   * moviendo la cámara (ni un momento después) ni cuando camina hacia la cámara, para no dar vueltas.
+   */
+  private followCamera(forward: number, mag: number, rdt: number): void {
+    if (this.camDragging || this.manualHold > 0 || forward < -0.35) return;
+    const k = 1 - Math.exp(-rdt * 2.4 * mag);
+    this.camYaw = lerpAngle(this.camYaw, this.player.yaw + Math.PI, k);
+    this.camPitch += (CAM_PITCH0 - this.camPitch) * (1 - Math.exp(-rdt * 1.2 * mag));
   }
 
   private checkZone(): void {
@@ -527,8 +561,10 @@ export class Game {
       this.look.y -= this.mode === 'cutscene' ? 1.5 : 0.4;
     } else {
       const ty = H(this.player.x, this.player.z) + 1.6;
-      this.camPos.set(this.player.x + Math.sin(this.camYaw) * 9.5, ty + 4.2, this.player.z + Math.cos(this.camYaw) * 9.5);
-      this.look.set(this.player.x, ty, this.player.z);
+      const p = this.camPitch, h = Math.cos(p) * CAM_DIST;
+      this.camPos.set(this.player.x + Math.sin(this.camYaw) * h, ty + Math.sin(p) * CAM_DIST + 0.4, this.player.z + Math.cos(this.camYaw) * h);
+      // Al bajar la cámara, la mirada sube: así se ven las laderas y los montes.
+      this.look.set(this.player.x, ty + Math.max(0, CAM_PITCH0 - p) * 3.5, this.player.z);
     }
     const ground = H(this.camPos.x, this.camPos.z) + 1.4;
     if (this.camPos.y < ground) this.camPos.y = ground;
