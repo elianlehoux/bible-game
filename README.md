@@ -16,9 +16,12 @@ Juego móvil (iOS / Android) basado en historias de la Biblia, hecho por un grup
 
 Nada de esto está decidido. Las decisiones se registran como ADR en [`docs/decisiones/`](docs/decisiones/).
 
-## Prototipo
+## Prototipos
 
-[`prototipos/valle-de-ela/`](prototipos/valle-de-ela/index.html): un episodio corto de David y Goliat (1 Samuel 17) que se puede jugar en cinco estilos retro para elegir el estilo visual. Para jugarlo, abre `index.html` en el navegador.
+Los dos cuentan el mismo episodio de David y Goliat (1 Samuel 17). Para jugarlos, abre el `index.html` de cada uno en el navegador. La comparación está en [estilo-visual.md](docs/investigacion/estilo-visual.md).
+
+- [`prototipos/valle-de-ela/`](prototipos/valle-de-ela/index.html): 2D retro, con cinco estilos de pixel art.
+- [`prototipos/honda-3d/`](prototipos/honda-3d/index.html): 3D low poly, con joystick táctil y una honda que se apunta arrastrando, con física.
 
 ## Documentos
 
