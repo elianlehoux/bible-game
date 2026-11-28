@@ -12,8 +12,7 @@
 | Asistentes de IA | Varios servidores MCP para Claude Code | Hay MCP / IA integrada | Limitado |
 | Lenguaje | GDScript (parecido a Python) o C# | C# | C++ / Blueprints |
 
-**Recomendación: Godot 4.** Para un equipo pequeño que hace un juego 2D/2.5D no tiene costo, genera apps livianas (importa para las descargas en el móvil) y guarda todo en texto, así que se trabaja bien con git y con agentes de IA.
-**Cuándo elegir Unity:** si la monetización con anuncios es central o si se apuesta por 3D. Antes de decidir, revisar los términos de licencia actuales de Unity.
+**Actualización (2026-11-28):** la propuesta pasó a ser **web primero con Three.js + TypeScript + Vite**, publicado como PWA y empaquetado con Capacitor para las tiendas. Godot queda como alternativa. Ver [ADR-0001](../decisiones/0001-motor-de-juego.md).
 
 ## Backend (por fases)
 
@@ -28,8 +27,8 @@ Firebase también sirve, pero Supabase es SQL, open source y se puede alojar en 
 ## Herramientas del equipo
 
 - Repo: GitHub, con PRs y revisión. **Git LFS** para arte y audio cuando empiece la producción.
-- CI: GitHub Actions para exportar builds de Android/iOS (hay acciones para Godot).
-- Pruebas: Godot GUT o GdUnit4.
+- CI: GitHub Actions compila cada PR y publica `main` en GitHub Pages (`.github/workflows/web.yml`).
+- Pruebas: `tsc` estricto en cada build; pruebas end-to-end con Playwright cuando haga falta.
 - Distribución de pruebas: TestFlight (iOS) e Internal Testing (Google Play).
 
 ## Fuentes

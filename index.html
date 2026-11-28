@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>La honda de David</title>
+  <meta name="description" content="Juego bíblico en 3D: David y Goliat en el valle de Ela (1 Samuel 17).">
+  <meta name="theme-color" content="#2a2218">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="La honda">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+</head>
+<body>
+  <main class="stage" id="stage">
+    <div class="glass quest" id="quest" hidden>
+      <span class="quest-label">Misión</span>
+      <span class="quest-text" id="questText"></span>
+      <span class="quest-bar" id="questBar" hidden><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="topbtns">
+      <button type="button" class="glass iconbtn" id="fsBtn" aria-label="Pantalla completa" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+    </div>
+    <div class="area fade" id="area" aria-hidden="true"></div>
+    <div class="glass toast" id="toast" role="status" hidden></div>
+    <div class="glass prompt" id="prompt" hidden></div>
+    <div class="glass aimhint" id="aimHint" hidden></div>
+    <div class="joy" id="joy" hidden aria-hidden="true"><div class="knob" id="knob"></div></div>
+    <button type="button" class="act" id="act" hidden>Hablar</button>
+    <div class="glass dlg" id="dlg" hidden>
+      <div class="portrait" id="portrait" aria-hidden="true"></div>
+      <div class="dlg-name" id="dlgName"></div>
+      <div class="dlg-text" id="dlgText"></div>
+      <div class="dlg-foot"><span id="dlgRef"></span><span>Toca para seguir ›</span></div>
+    </div>
+
+    <section class="overlay" id="title">
+      <div class="overlay-inner">
+        <span class="kicker">Valle de Ela · 1 Samuel 17</span>
+        <h1>La honda de David</h1>
+        <p>Lleva la comida a tus hermanos, convence al rey, junta cinco piedras y enfrenta al gigante. Son unos cuatro minutos.</p>
+        <div class="title-actions">
+          <button type="button" class="cta" id="playBtn" disabled>Cargando…</button>
+          <button type="button" class="cta ghost" id="installBtn" hidden>Instalar</button>
+        </div>
+        <p class="hint" id="iosHint" hidden>Para instalarlo en el iPhone: Compartir → Agregar a inicio.</p>
+        <p class="hint keys">Teclado: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o flechas para caminar, <kbd>Espacio</kbd> para hablar. Arrastra para girar la cámara y para apuntar la honda.</p>
+      </div>
+    </section>
+    <section class="overlay end" id="end" hidden>
+      <div class="overlay-inner">
+        <span class="kicker">Fin del episodio</span>
+        <q id="endQuote"></q>
+        <p id="endNote"></p>
+        <button type="button" class="cta" id="againBtn">Jugar otra vez</button>
+      </div>
+    </section>
+    <section class="overlay fail" id="fail" hidden>
+      <div class="overlay-inner"><h1>Sin 3D</h1><p></p></div>
+    </section>
+    <div class="sr" aria-live="polite" id="live"></div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

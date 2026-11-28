@@ -1,31 +1,49 @@
 # bible-game
 
-Juego móvil (iOS / Android) basado en historias de la Biblia, hecho por un grupo pequeño de ingenieros y usando IA tanto para desarrollar como dentro del juego.
+Juego bíblico 3D que corre en el navegador del teléfono y se puede instalar como app. Lo hace un grupo pequeño de ingenieros, usando IA para programar y para producir contenido.
 
-> **Estado:** Fase 0, investigación y definición de la idea. Todavía no hay código.
+> **Estado:** primer episodio jugable, *La honda de David* (1 Samuel 17).
 
-## Propuesta inicial (para discutir)
+## Jugar y desarrollar
+
+Requiere Node 22.
+
+```bash
+npm install
+npm run dev       # abre http://localhost:5173 (y en el teléfono, la IP que muestra, en la misma wifi)
+npm run build     # revisa los tipos y genera dist/
+npm run preview   # sirve el build, con modo sin conexión
+```
+
+Agrega `?debug` a la URL para tener atajos de prueba en `window.__game`.
+
+**Publicación:** cada merge a `main` publica el juego en GitHub Pages (`.github/workflows/web.yml`). Hay que activarlo una sola vez en *Settings → Pages → Source: GitHub Actions*.
+
+## Estructura
+
+| Carpeta | Qué hay |
+|---|---|
+| `src/content/` | Textos, elenco y misiones de cada episodio. Lo editan narrativa y revisión bíblica |
+| `src/world/` | Terreno, cielo, carpas, vegetación y ubicaciones |
+| `src/actors/` | Personajes y ovejas |
+| `src/game/` | Lógica del episodio, honda, diálogos, interfaz y controles |
+| `public/` | Manifest, service worker (modo sin conexión) e íconos |
+| `prototipos/` | Prototipos anteriores (retro 2D y 3D), como referencia |
+| `docs/` | Investigación y decisiones |
+
+## Decisiones (propuestas)
 
 | Tema | Propuesta | Detalle |
 |---|---|---|
-| Tipo de juego | Aventura narrativa **para un jugador, por episodios/misiones** (un episodio = una historia bíblica), con funciones sociales asíncronas más adelante | [tipo-de-juego.md](docs/investigacion/tipo-de-juego.md) |
-| Motor | **Godot 4** (gratis, liviano, todo en texto → bueno para git e IA) | [tecnologias.md](docs/investigacion/tecnologias.md) |
-| Backend | Ninguno en el MVP → **Supabase** para cuentas/rankings/proxy de IA → Nakama solo si llega el multijugador en tiempo real | [tecnologias.md](docs/investigacion/tecnologias.md) |
-| IA | Para producir contenido (con revisión humana) **y** como función en el juego: "habla con un personaje", con respuestas basadas en el texto bíblico | [ia.md](docs/investigacion/ia.md) |
+| Tipo de juego | Aventura para un jugador, por episodios | [tipo-de-juego.md](docs/investigacion/tipo-de-juego.md) |
+| Plataforma y motor | **Web primero:** Three.js + TypeScript + Vite, como PWA; tiendas después con Capacitor | [ADR-0001](docs/decisiones/0001-motor-de-juego.md) |
+| Estilo | 3D low poly con luz de atardecer | [estilo-visual.md](docs/investigacion/estilo-visual.md) |
+| Backend | Ninguno por ahora → Supabase para cuentas, rankings y proxy de IA | [tecnologias.md](docs/investigacion/tecnologias.md) |
+| IA | Para producir contenido (con revisión) y para hablar con los personajes | [ia.md](docs/investigacion/ia.md) |
 | Texto bíblico | Traducciones de dominio público (RV1909, KJV, WEB) | [contenido-y-licencias.md](docs/investigacion/contenido-y-licencias.md) |
 
-Nada de esto está decidido. Las decisiones se registran como ADR en [`docs/decisiones/`](docs/decisiones/).
+## Más documentos
 
-## Prototipos
-
-Los dos cuentan el mismo episodio de David y Goliat (1 Samuel 17). Para jugarlos, abre el `index.html` de cada uno en el navegador. La comparación está en [estilo-visual.md](docs/investigacion/estilo-visual.md).
-
-- [`prototipos/valle-de-ela/`](prototipos/valle-de-ela/index.html): 2D retro, con cinco estilos de pixel art.
-- [`prototipos/honda-3d/`](prototipos/honda-3d/index.html): 3D low poly, con joystick táctil y una honda que se apunta arrastrando, con física.
-
-## Documentos
-
-- [Ideas de juego](docs/ideas.md): conceptos para votar
+- [Ideas de juego](docs/ideas.md)
 - [Preguntas abiertas y hoja de ruta](docs/hoja-de-ruta.md)
 - [Cómo colaborar](CONTRIBUTING.md)
-- [Investigación](docs/investigacion/)
