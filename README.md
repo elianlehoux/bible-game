@@ -2,7 +2,7 @@
 
 Juego bíblico 3D que corre en el navegador del teléfono y se puede instalar como app. Lo hace un grupo pequeño de ingenieros, usando IA para programar y para producir contenido.
 
-> **Estado:** primer episodio jugable, *La honda de David* (1 Samuel 17).
+> **Estado:** primer episodio jugable, *La honda de David* (1 Samuel 17), en cuatro niveles: el pastor de Belén (el león), el encargo de Isaí, el camino al valle de Ela y el valle de Ela. El progreso se guarda en el navegador.
 
 ## Jugar y desarrollar
 
@@ -15,7 +15,7 @@ npm run build     # revisa los tipos y genera dist/
 npm run preview   # sirve el build, con modo sin conexión
 ```
 
-Agrega `?debug` a la URL para tener atajos de prueba en `window.__game`.
+Agrega `?debug` a la URL para tener atajos de prueba en `window.__game` (por ejemplo `play(n)` para abrir el nivel n, `skipDialog()`, `step(s)` para avanzar s segundos e `info` con el estado del nivel).
 
 **Publicación:** cada merge a `main` publica el juego en GitHub Pages (`.github/workflows/web.yml`). Hay que activarlo una sola vez en *Settings → Pages → Source: GitHub Actions*.
 
@@ -23,10 +23,11 @@ Agrega `?debug` a la URL para tener atajos de prueba en `window.__game`.
 
 | Carpeta | Qué hay |
 |---|---|
-| `src/content/` | Textos, elenco y misiones de cada episodio. Lo editan narrativa y revisión bíblica |
-| `src/world/` | Terreno, cielo, carpas, vegetación y ubicaciones |
-| `src/actors/` | Personajes y ovejas |
-| `src/game/` | Lógica del episodio, honda, diálogos, interfaz y controles |
+| `src/content/` | Textos, elenco y misiones: `comun.ts` y un archivo por nivel (`nivel1.ts` … `nivel4.ts`). Lo editan narrativa y revisión bíblica |
+| `src/levels/` | Lógica de cada nivel (`nivel1.ts` … `nivel4.ts`), la interfaz `Level` en `types.ts` y la lista en `index.ts` |
+| `src/world/` | Mapas: `belen.ts` (niveles 1 y 2), `camino.ts` (nivel 3) y `valle/` (nivel 4); piezas comunes en `ground.ts`, `kit.ts` y `sky.ts` |
+| `src/actors/` | Personajes, ovejas y el león |
+| `src/game/` | El armazón del juego (jugador, cámara, carga de niveles, progreso), honda, diálogos, interfaz y controles |
 | `public/` | Manifest, service worker (modo sin conexión) e íconos |
 | `prototipos/` | Prototipos anteriores (retro 2D y 3D), como referencia |
 | `docs/` | Investigación y decisiones |

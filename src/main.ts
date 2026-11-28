@@ -4,10 +4,8 @@ import '@fontsource/figtree/700.css';
 import '@fontsource/marcellus/400.css';
 import './styles.css';
 import * as THREE from 'three';
-import { createTerrain, createWater } from './world/terrain';
-import { createSky } from './world/sky';
-import { createProps } from './world/props';
-import { Game } from './game/game';
+import { Game, savedLevel } from './game/game';
+import { NIVELES } from './levels';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -43,7 +41,6 @@ function main(): void {
     fail('El teléfono liberó la memoria gráfica. Recarga la página para seguir jugando.');
   });
 
-  const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 700);
   const resize = () => {
     const w = stage.clientWidth, h = stage.clientHeight;
@@ -56,19 +53,29 @@ function main(): void {
   new ResizeObserver(resize).observe(stage);
   resize();
 
-  createTerrain(scene);
-  const water = createWater(scene);
-  const sun = createSky(scene, lowEnd);
-  const props = createProps(scene, lowEnd);
-  const game = new Game(scene, camera, stage, { props, water, sun });
+  // De fondo en el título se ve el nivel donde quedó el jugador.
+  const game = new Game(camera, stage, lowEnd);
+  const reached = savedLevel();
+  game.load(reached);
 
+  const begin = (n: number) => {
+    $('title').hidden = true;
+    game.showCard(n);
+  };
   const play = $('playBtn') as HTMLButtonElement;
   play.disabled = false;
-  play.textContent = 'Jugar';
-  play.addEventListener('click', () => {
-    $('title').hidden = true;
-    game.start();
-  });
+  play.textContent = reached > 1 ? `Seguir: nivel ${reached}` : 'Jugar';
+  play.addEventListener('click', () => begin(reached));
+  const list = $('levels');
+  for (const def of NIVELES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `${def.n}. ${def.titulo}`;
+    b.disabled = def.n > reached;
+    b.title = def.n > reached ? 'Completa el nivel anterior para desbloquearlo' : def.ref;
+    b.addEventListener('click', () => begin(def.n));
+    list.append(b);
+  }
   $('againBtn').addEventListener('click', () => game.restart());
 
   const fs = $('fsBtn') as HTMLButtonElement;
@@ -91,8 +98,8 @@ function main(): void {
     const rdt = Math.min(0.05, (now - last) / 1000);
     last = now;
     game.update(rdt * game.timeScale, rdt);
-    renderer.render(scene, camera);
-    if (!perfDone && game.mode === 'explore') {
+    renderer.render(game.scene, camera);
+    if (!perfDone && game.mode === 'play') {
       perfT += rdt;
       perfFrames++;
       if (perfT > 4) {

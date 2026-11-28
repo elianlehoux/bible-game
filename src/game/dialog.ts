@@ -1,4 +1,4 @@
-import { RETRATOS, type Line } from '../content/episodio1';
+import { RETRATOS, type Line } from '../content/comun';
 
 const CHARS_PER_SECOND = 70;
 
@@ -23,6 +23,13 @@ export class Dialog {
     this.onEnd = onEnd ?? null;
     this.box.hidden = false;
     this.showLine();
+  }
+
+  /** Cierra sin llamar al final (al cambiar de nivel). */
+  close(): void {
+    this.open = false;
+    this.onEnd = null;
+    this.box.hidden = true;
   }
 
   /** Completa la línea actual o pasa a la siguiente. */

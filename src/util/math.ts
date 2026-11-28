@@ -42,3 +42,17 @@ export function lerpAngle(a: number, b: number, t: number): number {
   const d = ((((b - a + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
   return a + d * t;
 }
+
+/** Distancia de un punto a un segmento. */
+export function distSeg(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
+  const dx = bx - ax, dz = bz - az;
+  const t = clamp(((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz), 0, 1);
+  return Math.hypot(px - ax - dx * t, pz - az - dz * t);
+}
+
+/** Distancia de un punto al más cercano de varios caminos (listas de puntos [x, z]). */
+export function distPaths(paths: [number, number][][], x: number, z: number): number {
+  let m = 1e9;
+  for (const p of paths) for (let i = 0; i < p.length - 1; i++) m = Math.min(m, distSeg(x, z, p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]));
+  return m;
+}

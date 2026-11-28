@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mat, mesh, BRONZE } from '../util/materials';
 import { rand } from '../util/math';
-import { H } from '../world/terrain';
+import { H } from '../world/ground';
 
 /**
  * Apariencia de un personaje armado con formas simples.
@@ -26,6 +26,8 @@ export interface Look {
   spear?: boolean | 'big';
   staff?: boolean;
   bag?: boolean;
+  /** Carga atada a la espalda (los víveres para los hermanos). */
+  sack?: boolean;
   shield?: boolean;
 }
 
@@ -144,6 +146,11 @@ export function createPerson(scene: THREE.Scene, o: Look, x: number, z: number, 
   }
   if (o.staff) armL.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.1, 5), mat('#7a5a38'), 0, -0.35, 0.05));
   if (o.bag) rig.add(mesh(new THREE.BoxGeometry(0.24, 0.28, 0.12), mat('#6e4a2c'), 0.36, 1.0, 0.1));
+  if (o.sack) {
+    const s = mesh(new THREE.IcosahedronGeometry(0.36, 1), mat('#b59a6a'), 0, 1.45, -0.42);
+    s.scale.set(1.1, 1.25, 0.8);
+    rig.add(s, mesh(new THREE.CylinderGeometry(0.2, 0.18, 0.5, 7), mat('#a37a44'), 0.18, 1.95, -0.38));
+  }
   if (o.shield) armL.add(mesh(new THREE.BoxGeometry(1.0, 1.55, 0.1), mat('#7a5a36'), -0.05, -0.45, 0.32));
 
   g.position.set(x, H(x, z), z);

@@ -1,4 +1,6 @@
-import { mx } from './terrain';
+import { mx } from './terreno';
+import type { Point } from '../ground';
+import type { TentDef } from '../kit';
 
 // Ubicaciones del episodio 1 (valle de Ela). Unidades ≈ metros, con las distancias reales comprimidas.
 //
@@ -7,10 +9,6 @@ import { mx } from './terrain';
 // un monte y el valle queda en medio (1 S 17:3). No se sabe con certeza qué ladera ocupaba cada
 // uno: Israel queda en x < 0 y los filisteos en x > 0, así el sol de la tarde ilumina a Goliat.
 
-export interface Point { x: number; z: number }
-export interface Collider extends Point { r: number }
-export type TentKind = 'goat' | 'cream' | 'royal' | 'red' | 'stripe';
-export interface TentDef extends Point { rot: number; kind: TentKind }
 
 /** David llega desde el este, desde Belén (1 S 17:20). */
 export const START: Point = { x: -24, z: -29 };
@@ -20,6 +18,8 @@ export const GOLIAT_POS: Point = { x: 16, z: 2 };
 /** El escudero va delante de él (1 S 17:7, 41). */
 export const ESCUDERO_OFFSET: Point = { x: -1.9, z: 1.6 };
 export const FIRE: Point = { x: -25, z: 7 };
+/** Donde David deja la carga al llegar (1 S 17:22). */
+export const BAGAJE: Point = { x: -19, z: -23 };
 
 /** A esta distancia de Goliat, con las cinco piedras, empieza el enfrentamiento. */
 export const ENGAGE_R = 15;
@@ -54,6 +54,3 @@ export const TEREBINTO: Point & { s: number } = { x: -7.6, z: -21, s: 1.8 };
  * y lejos de Goliat. El valor es la distancia al hilo de agua: el lecho seco tiene ±4 m.
  */
 export const STONE_SPOTS: Point[] = ([[-31, -2.2], [-27, 1.9], [-23.5, -1.7], [-19, 2.4], [-15, -2.6]] as const).map(([z, side]) => ({ x: mx(z) + side, z }));
-
-/** Rebaño pastando en las colinas del fondo. */
-export const SHEEP_SPOTS: Point[] = [{ x: -38, z: -24 }, { x: -35, z: -27 }, { x: -41, z: -20 }, { x: -33, z: -23 }];

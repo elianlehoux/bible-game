@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { H } from '../world/terrain';
+import { H } from '../world/ground';
 import { clamp } from '../util/math';
 import { mat, mesh } from '../util/materials';
 

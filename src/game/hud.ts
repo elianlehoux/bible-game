@@ -1,4 +1,7 @@
-// Capa de interfaz en HTML encima del canvas: misión, avisos, nombres flotantes y botón de acción.
+import type { LevelDef } from '../levels/types';
+
+// Capa de interfaz en HTML encima del canvas: misión, avisos, nombres flotantes, botón de acción,
+// tarjeta de cada nivel y fundido entre escenas.
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -16,15 +19,65 @@ export class Hud {
   private aimEl = $('aimHint');
   private joyEl = $('joy');
   private actEl = $<HTMLButtonElement>('act');
+  private timerEl = $('timer');
+  private cardEl = $('levelCard');
+  private fadeEl = $('fade');
   private toastT = 0;
   private areaT = 0;
+  private cardDone: (() => void) | null = null;
+
+  constructor() {
+    $('cardBtn').addEventListener('click', () => {
+      const f = this.cardDone;
+      this.closeCard();
+      f?.();
+    });
+  }
 
   showQuest(show: boolean): void { this.quest.hidden = !show; }
 
-  setQuest(text: string, filled: number | null): void {
+  /** Texto de la misión y, si hay, el avance (por ejemplo 3 de 5). */
+  setQuest(text: string, progress: [number, number] | null): void {
     this.questText.textContent = text;
-    this.questBar.hidden = filled === null;
-    [...this.questBar.children].forEach((el, k) => el.classList.toggle('on', filled !== null && k < filled));
+    this.questBar.hidden = progress === null;
+    if (!progress) return;
+    const [n, total] = progress;
+    while (this.questBar.children.length < total) this.questBar.append(document.createElement('i'));
+    while (this.questBar.children.length > total) this.questBar.lastElementChild!.remove();
+    [...this.questBar.children].forEach((el, k) => el.classList.toggle('on', k < n));
+  }
+
+  /** Reloj del nivel 3 (segundos restantes), o null para ocultarlo. */
+  timer(secs: number | null, label = ''): void {
+    this.timerEl.hidden = secs === null;
+    if (secs === null) return;
+    const s = Math.max(0, Math.ceil(secs));
+    this.timerEl.textContent = `${label}${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    this.timerEl.classList.toggle('low', s <= 20);
+  }
+
+  card(def: LevelDef, total: number, onStart: () => void): void {
+    $('cardKicker').textContent = `Nivel ${def.n} de ${total}`;
+    $('cardTitle').textContent = def.titulo;
+    $('cardText').textContent = def.resumen;
+    $('cardRef').textContent = def.ref;
+    this.cardEl.hidden = false;
+    this.cardDone = onStart;
+    $<HTMLButtonElement>('cardBtn').focus({ preventScroll: true });
+  }
+
+  closeCard(): void {
+    this.cardEl.hidden = true;
+    this.cardDone = null;
+  }
+
+  /** Funde a negro, llama a `mid` y vuelve a mostrar la escena. */
+  fade(mid: () => void): void {
+    this.fadeEl.classList.add('on');
+    setTimeout(() => {
+      mid();
+      requestAnimationFrame(() => this.fadeEl.classList.remove('on'));
+    }, 380);
   }
 
   toast(text: string, secs = 2.4): void {
@@ -80,5 +133,6 @@ export class Hud {
     this.action(null);
     this.joystick(false);
     this.toastEl.hidden = true;
+    this.timer(null);
   }
 }

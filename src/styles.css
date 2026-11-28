@@ -38,6 +38,16 @@ h1, p { margin: 0; }
 .quest-bar i { width: 18px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); }
 .quest-bar i.on { background: var(--gold); }
 
+.timer { position: absolute; top: calc(66px + var(--safe-t)); right: calc(12px + var(--safe-r)); padding: 6px 14px; border-radius: 999px; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
+.timer.low { color: #ffb38a; }
+.blackout { position: absolute; inset: 0; background: #120e09; opacity: 0; pointer-events: none; transition: opacity 0.35s; z-index: 5; }
+.blackout.on { opacity: 1; }
+.levels { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.levels button { font: 600 0.85rem var(--font-body); color: var(--ink); background: rgba(255, 248, 235, 0.12); border: 1px solid rgba(255, 248, 235, 0.35); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.levels button:disabled { opacity: 0.4; cursor: not-allowed; }
+.levels button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.card { background: linear-gradient(180deg, rgba(20, 16, 10, 0.25), rgba(20, 16, 10, 0.85)); }
+.card .overlay-inner { align-self: center; padding: 0; }
 .topbtns { position: absolute; top: calc(12px + var(--safe-t)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; }
 .iconbtn { width: 42px; height: 42px; display: grid; place-items: center; color: var(--ink); cursor: pointer; padding: 0; }
 .iconbtn svg { width: 20px; height: 20px; }
