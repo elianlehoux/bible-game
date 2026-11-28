@@ -34,13 +34,14 @@ export interface CastMember { id: NpcId; name: string; x: number; z: number; yaw
 
 export const ELENCO: CastMember[] = [
   // Eliab era alto (1 S 16:7) y Saúl sobresalía por encima de todos (1 S 9:2).
-  { id: 'eliab', name: 'Eliab', x: -14.5, z: 6.5, yaw: -2.2, side: 'israel', look: { tunic: '#56688c', helmet: '#8a7a5a', scale: 1.08, spear: true } },
-  { id: 'saul', name: 'Saúl', x: -16.5, z: -3, yaw: 1.4, side: 'israel', look: { tunic: '#6a3d85', crown: true, beard: true, cape: '#4a2566', scale: 1.15 } },
-  { id: 'sold1', name: 'Soldado', x: -6.5, z: 4.5, yaw: 1.57, side: 'israel', look: { tunic: '#8a5a3a', helmet: '#7f8088', spear: true } },
-  { id: 'sold2', name: 'Soldado', x: -11, z: -8, yaw: 1.3, side: 'israel', look: { tunic: '#7a6a4a', helmet: '#7f8088', beard: true } },
-  { id: 'fil1', name: 'Filisteo', x: 15, z: -6, yaw: -1.57, side: 'filisteo', look: { tunic: '#a2402c', feathers: true, spear: true, skin: '#c99670' } },
-  { id: 'fil2', name: 'Filisteo', x: 16, z: 7.5, yaw: -1.7, side: 'filisteo', look: { tunic: '#a2402c', feathers: true, skin: '#c99670' } },
-  { id: 'fil3', name: 'Filisteo', x: 21, z: 1.5, yaw: -1.57, side: 'filisteo', look: { tunic: '#8f3a2a', feathers: true, spear: true, skin: '#c99670' } },
+  // Los soldados están en orden de batalla al pie de su ladera, mirando al valle (1 S 17:20–21).
+  { id: 'eliab', name: 'Eliab', x: -15, z: 5, yaw: 1.4, side: 'israel', look: { tunic: '#56688c', helmet: '#8a7a5a', scale: 1.08, spear: true } },
+  { id: 'saul', name: 'Saúl', x: -24, z: -1.5, yaw: 1.2, side: 'israel', look: { tunic: '#6a3d85', crown: true, beard: true, cape: '#4a2566', scale: 1.15 } },
+  { id: 'sold1', name: 'Soldado', x: -13.5, z: -2, yaw: 1.57, side: 'israel', look: { tunic: '#8a5a3a', helmet: '#7f8088', spear: true } },
+  { id: 'sold2', name: 'Soldado', x: -15, z: 11, yaw: 1.5, side: 'israel', look: { tunic: '#7a6a4a', helmet: '#7f8088', beard: true } },
+  { id: 'fil1', name: 'Filisteo', x: 22, z: -5, yaw: -1.57, side: 'filisteo', look: { tunic: '#a2402c', feathers: true, spear: true, skin: '#c99670' } },
+  { id: 'fil2', name: 'Filisteo', x: 22.5, z: 9, yaw: -1.7, side: 'filisteo', look: { tunic: '#a2402c', feathers: true, skin: '#c99670' } },
+  { id: 'fil3', name: 'Filisteo', x: 25, z: 2, yaw: -1.57, side: 'filisteo', look: { tunic: '#8f3a2a', feathers: true, spear: true, skin: '#c99670' } },
 ];
 
 // ---------- Textos de interfaz ----------
@@ -48,15 +49,15 @@ export const ELENCO: CastMember[] = [
 export const MISIONES = {
   comida: 'Lleva la comida a tus hermanos en el campamento',
   saul: 'Habla con el rey Saúl, junto a la tienda morada',
-  piedras: 'Junta cinco piedras lisas del arroyo',
-  gigante: 'Enfrenta al gigante al otro lado del arroyo',
+  piedras: 'Junta cinco piedras lisas en el arroyo, junto al gran terebinto',
+  gigante: 'Cruza el arroyo y acércate al filisteo',
   fin: 'Episodio completado',
 };
 
 export const ZONAS = {
-  israel: { nombre: 'Campamento de Israel' },
+  israel: { nombre: 'Campamento de Israel', sub: 'En el monte, frente a los filisteos' },
   arroyo: { nombre: 'Valle de Ela', sub: 'Ela significa terebinto' },
-  filisteo: { nombre: 'Campamento filisteo' },
+  filisteo: { nombre: 'Campamento filisteo', sub: 'Entre Soco y Azeca (1 S 17:1)' },
 };
 
 export const FINAL = {
@@ -115,8 +116,9 @@ export const DIALOGOS = {
 
 export const AVISOS = {
   comidaEntregada: 'Comida entregada',
-  buscarPiedras: 'Busca las piedras que brillan en el arroyo',
+  buscarPiedras: 'Baja al arroyo, junto al gran terebinto, y busca piedras lisas entre los cantos',
   piedra: (n: number) => `Piedra lisa ${n} de 5`,
+  acerca: 'El filisteo viene hacia David, con su escudero delante',
   corre: 'David corre hacia el filisteo',
   apuntar: '<b>Arrastra</b> para apuntar a la frente y <b>suelta</b> para lanzar',
   coraza: 'Rebotó en la coraza de bronce. ¡Apunta a la frente!',

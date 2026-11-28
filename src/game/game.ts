@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { H, inWater } from '../world/terrain';
-import { START, STAND, GOLIAT_POS, ESCUDERO_POS, STONE_SPOTS, SHEEP_SPOTS, BOUNDS, type Collider } from '../world/layout';
+import { H, inWater, mx, eastOfBed, BED_HALF } from '../world/terrain';
+import { START, START_YAW, GOLIAT_POS, ESCUDERO_OFFSET, ENGAGE_R, AIM_DIST, STONE_SPOTS, SHEEP_SPOTS, BOUNDS, type Collider, type Point } from '../world/layout';
 import type { Props } from '../world/props';
 import type { Water } from '../world/terrain';
 import type { SunRig } from '../world/sky';
@@ -15,15 +15,18 @@ import { Input } from './input';
 import { Fx } from './fx';
 import { Sling, type MissReason } from './sling';
 
-type Mode = 'title' | 'explore' | 'aim' | 'cutscene' | 'end';
+type Mode = 'title' | 'explore' | 'approach' | 'aim' | 'cutscene' | 'end';
 type Zone = keyof typeof ZONAS;
 
 interface State { food: boolean; saul: boolean; stones: number; won: boolean; ammo: number }
 interface Npc { id: NpcId; name: string; x: number; z: number; yaw0: number; p: Person; flee: boolean; side: 'israel' | 'filisteo' }
-interface Target { id: NpcId | 'goliat'; name: string; x: number; z: number; big: boolean }
+interface Target { id: NpcId | 'goliat' | 'piedra'; name: string; x: number; z: number; big: boolean; stone?: StoneObj }
 interface StoneObj { grp: THREE.Group; st: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; glow: THREE.Sprite; x: number; z: number }
 
 const GOLIAT_SCALE = GOLIAT.scale ?? 1;
+/** La cámara empieza detrás de David, que llega mirando hacia el campamento. */
+const CAM_YAW0 = START_YAW + Math.PI - 0.35;
+const PICK_R = 1.7;
 const freshState = (): State => ({ food: false, saul: false, stones: 0, won: false, ammo: 5 });
 
 export interface World { props: Props; water: Water; sun: SunRig }
@@ -34,10 +37,13 @@ export class Game {
   private player!: { p: Person; x: number; z: number; yaw: number };
   private npcs: Npc[] = [];
   private goliat!: Person;
-  private escudero!: { p: Person; x: number; flee: boolean };
+  /** Goliat avanza hacia David antes del duelo (1 S 17:41, 48), así que su posición cambia. */
+  private gpos: Point = { ...GOLIAT_POS };
+  private gyaw = -Math.PI / 2;
+  private escudero!: { p: Person; x: number; z: number; flee: boolean };
   private flock: Sheep[] = [];
   private stones: StoneObj[];
-  private camYaw = -0.64;
+  private camYaw = CAM_YAW0;
   private dragYaw = 0;
   private near: Target | null = null;
   private zone: Zone | '' = '';
@@ -103,7 +109,7 @@ export class Game {
   restart(): void {
     this.spawn();
     this.mode = 'explore';
-    this.camYaw = -0.64;
+    this.camYaw = CAM_YAW0;
     this.zone = 'israel';
     this.cut = null;
     this.slow = 0;
@@ -120,9 +126,11 @@ export class Game {
     if (this.slow > 0) this.slow -= rdt;
     this.T += dt;
     this.updatePlayer(dt, rdt);
+    this.checkEngage();
     this.updateStones(dt);
     this.updateNpcs(dt);
     this.updateAim(dt);
+    if (this.mode === 'approach') this.updateApproach(dt);
     if (this.mode === 'cutscene') this.updateCutscene(dt);
     this.world.props.update(this.T);
     this.world.water.update(this.T);
@@ -146,10 +154,13 @@ export class Game {
       for (const s of this.flock) this.scene.remove(s.g);
     }
     this.S = freshState();
-    this.player = { p: createPerson(this.scene, DAVID, START.x, START.z, 2.5), x: START.x, z: START.z, yaw: 2.5 };
+    this.player = { p: createPerson(this.scene, DAVID, START.x, START.z, START_YAW), x: START.x, z: START.z, yaw: START_YAW };
     this.npcs = ELENCO.map((c) => ({ id: c.id, name: c.name, x: c.x, z: c.z, yaw0: c.yaw, side: c.side, flee: false, p: createPerson(this.scene, c.look, c.x, c.z, c.yaw) }));
-    this.goliat = createPerson(this.scene, GOLIAT, GOLIAT_POS.x, GOLIAT_POS.z, -Math.PI / 2);
-    this.escudero = { p: createPerson(this.scene, ESCUDERO, ESCUDERO_POS.x, ESCUDERO_POS.z, -1.7), x: ESCUDERO_POS.x, flee: false };
+    this.gpos = { ...GOLIAT_POS };
+    this.gyaw = -Math.PI / 2;
+    this.goliat = createPerson(this.scene, GOLIAT, this.gpos.x, this.gpos.z, this.gyaw);
+    const ex = GOLIAT_POS.x + ESCUDERO_OFFSET.x, ez = GOLIAT_POS.z + ESCUDERO_OFFSET.z;
+    this.escudero = { p: createPerson(this.scene, ESCUDERO, ex, ez, -1.7), x: ex, z: ez, flee: false };
     this.flock = SHEEP_SPOTS.map((s) => createSheep(this.scene, s.x, s.z));
     for (const s of this.stones) s.grp.visible = false;
   }
@@ -159,7 +170,8 @@ export class Game {
     return STONE_SPOTS.map((s) => {
       const grp = new THREE.Group();
       grp.position.set(s.x, H(s.x, s.z) + 0.12, s.z);
-      const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2, 0), new THREE.MeshStandardMaterial({ color: '#ece6d8', emissive: '#ffcf6a', emissiveIntensity: 0.3, flatShading: true, roughness: 0.5 }));
+      // Lisa y redondeada (más subdivisión que los cantos comunes) para que se distinga al acercarse.
+      const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1), new THREE.MeshStandardMaterial({ color: '#efe9db', emissive: '#ffcf6a', emissiveIntensity: 0.2, flatShading: true, roughness: 0.35 }));
       st.scale.set(1.1, 0.65, 0.85);
       st.castShadow = true;
       const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
@@ -197,7 +209,9 @@ export class Game {
         return say(DIALOGOS.filisteo);
       case 'goliat':
         if (S.stones < 5) return say(DIALOGOS.goliatAntes);
-        return say(DIALOGOS.goliat, () => this.startAim());
+        return this.confront();
+      case 'piedra':
+        if (t.stone) this.pickStone(t.stone);
     }
   }
 
@@ -219,7 +233,8 @@ export class Game {
 
   private colliders(): Collider[] {
     const dyn: Collider[] = this.npcs.filter((n) => !n.flee).map((n) => ({ x: n.x, z: n.z, r: 0.7 }));
-    dyn.push({ x: GOLIAT_POS.x, z: GOLIAT_POS.z, r: 1.4 }, { x: ESCUDERO_POS.x, z: ESCUDERO_POS.z, r: 0.9 });
+    dyn.push({ x: this.gpos.x, z: this.gpos.z, r: 1.4 });
+    if (!this.escudero.flee) dyn.push({ x: this.escudero.x, z: this.escudero.z, r: 0.9 });
     for (const s of this.flock) dyn.push({ x: s.g.position.x, z: s.g.position.z, r: 0.6 });
     return this.world.props.colliders.concat(dyn);
   }
@@ -255,14 +270,14 @@ export class Game {
       speed = mag;
       this.checkZone();
     }
-    if (this.mode === 'aim' || this.mode === 'cutscene') pl.yaw = lerpAngle(pl.yaw, Math.atan2(this.sling.forward.x, this.sling.forward.z), 1 - Math.exp(-dt * 10));
+    if (this.mode === 'approach' || this.mode === 'aim' || this.mode === 'cutscene') pl.yaw = lerpAngle(pl.yaw, Math.atan2(this.sling.forward.x, this.sling.forward.z), 1 - Math.exp(-dt * 10));
     pl.p.g.position.set(pl.x, H(pl.x, pl.z), pl.z);
     pl.p.g.rotation.y = pl.yaw;
     animatePerson(pl.p, speed, dt, this.T);
   }
 
   private checkZone(): void {
-    const x = this.player.x, z: Zone = x < -7 ? 'israel' : x <= 7 ? 'arroyo' : 'filisteo';
+    const sx = this.player.x - mx(this.player.z), z: Zone = sx < -(BED_HALF + 4) ? 'israel' : sx <= BED_HALF + 4 ? 'arroyo' : 'filisteo';
     if (z === this.zone) return;
     this.zone = z;
     const info: { nombre: string; sub?: string } = ZONAS[z];
@@ -272,17 +287,21 @@ export class Game {
   private updateStones(dt: number): void {
     this.stones.forEach((s, i) => {
       if (!s.grp.visible) return;
-      s.st.material.emissiveIntensity = 0.25 + Math.sin(this.T * 4 + i) * 0.2;
-      s.glow.material.opacity = 0.55 + Math.sin(this.T * 4 + i) * 0.3;
-      s.st.rotation.y += dt;
-      if (this.mode === 'explore' && Math.hypot(s.x - this.player.x, s.z - this.player.z) < 1.5) {
-        s.grp.visible = false;
-        this.S.stones++;
-        this.updateQuest();
-        this.hud.toast(AVISOS.piedra(this.S.stones));
-        if (this.S.stones === 5) setTimeout(() => this.dialog.say(DIALOGOS.piedrasCompletas), 500);
-      }
+      // Brillan apenas de lejos y más al acercarse: hay que recorrer el lecho para encontrarlas.
+      const d = Math.hypot(s.x - this.player.x, s.z - this.player.z), near = 1 - smooth(3, 16, d);
+      const pulse = 0.5 + Math.sin(this.T * 4 + i) * 0.5;
+      s.st.material.emissiveIntensity = 0.08 + near * (0.15 + pulse * 0.2);
+      s.glow.material.opacity = 0.12 + near * (0.3 + pulse * 0.35);
+      s.st.rotation.y += dt * 0.6;
     });
+  }
+
+  private pickStone(s: StoneObj): void {
+    s.grp.visible = false;
+    this.S.stones++;
+    this.updateQuest();
+    this.hud.toast(AVISOS.piedra(this.S.stones));
+    if (this.S.stones === 5) setTimeout(() => this.dialog.say(DIALOGOS.piedrasCompletas), 500);
   }
 
   private updateNpcs(dt: number): void {
@@ -305,29 +324,63 @@ export class Game {
     if (e.flee) {
       e.x += dt * 7;
       e.p.g.rotation.y = lerpAngle(e.p.g.rotation.y, Math.PI / 2, 0.2);
-      e.p.g.position.set(e.x, H(e.x, ESCUDERO_POS.z), ESCUDERO_POS.z);
     }
-    animatePerson(e.p, e.flee ? 1 : 0, dt, T);
-    if (!this.S.won) {
+    e.p.g.position.set(e.x, H(e.x, e.z), e.z);
+    animatePerson(e.p, e.flee || this.mode === 'approach' ? 1 : 0, dt, T);
+    this.goliat.g.position.set(this.gpos.x, H(this.gpos.x, this.gpos.z), this.gpos.z);
+    this.goliat.g.rotation.y = this.gyaw;
+    if (!this.S.won && this.mode !== 'approach') {
       this.goliat.armR.rotation.x = -0.25 + Math.sin(T * 1.3) * 0.12;
       this.goliat.armL.rotation.x = Math.sin(T * 1.3 + 1) * 0.1;
     }
-    animatePerson(this.goliat, 0, dt, T);
+    animatePerson(this.goliat, this.mode === 'approach' ? 0.6 : 0, dt, T);
     for (const s of this.flock) updateSheep(s, dt, T);
   }
 
   // ---------- Honda ----------
 
   private headPos(out: THREE.Vector3): THREE.Vector3 {
-    return out.set(GOLIAT_POS.x, H(GOLIAT_POS.x, GOLIAT_POS.z) + 2.02 * GOLIAT_SCALE + 0.05, GOLIAT_POS.z);
+    return out.set(this.gpos.x, H(this.gpos.x, this.gpos.z) + 2.02 * GOLIAT_SCALE + 0.05, this.gpos.z);
+  }
+
+  /** Con las cinco piedras, al cruzar el arroyo y acercarse, Goliat sale a su encuentro. */
+  private checkEngage(): void {
+    if (this.mode !== 'explore' || this.dialog.open || this.S.stones < 5 || this.S.won) return;
+    const pl = this.player;
+    if (eastOfBed(pl.x, pl.z) && Math.hypot(this.gpos.x - pl.x, this.gpos.z - pl.z) < ENGAGE_R) this.confront();
+  }
+
+  /** El filisteo avanza con su escudero delante (1 S 17:41) y después habla. */
+  private confront(): void {
+    this.mode = 'approach';
+    this.hud.toast(AVISOS.acerca, 2.2);
+  }
+
+  private updateApproach(dt: number): void {
+    const pl = this.player, g = this.gpos;
+    const dx = pl.x - g.x, dz = pl.z - g.z, d = Math.hypot(dx, dz);
+    this.gyaw = lerpAngle(this.gyaw, Math.atan2(dx, dz), 1 - Math.exp(-dt * 5));
+    this.sling.setBasis(pl.x, pl.z, this.headPos(this.head));
+    if (d > AIM_DIST) {
+      const step = Math.min(d - AIM_DIST, dt * 1.8);
+      g.x += (dx / d) * step;
+      g.z += (dz / d) * step;
+      // El escudero se mantiene delante, entre Goliat y David.
+      const ex = g.x + (dx / d) * 1.8 - (dz / d) * 1.2, ez = g.z + (dz / d) * 1.8 + (dx / d) * 1.2;
+      this.escudero.x += (ex - this.escudero.x) * (1 - Math.exp(-dt * 4));
+      this.escudero.z += (ez - this.escudero.z) * (1 - Math.exp(-dt * 4));
+      this.escudero.p.g.rotation.y = lerpAngle(this.escudero.p.g.rotation.y, Math.atan2(dx, dz), 0.1);
+      return;
+    }
+    if (this.dialog.open) return;
+    this.dialog.say(DIALOGOS.goliat, () => this.startAim());
   }
 
   private startAim(): void {
+    // David se queda donde está: ya cruzó el arroyo y tiene al gigante enfrente.
     this.mode = 'aim';
     this.S.ammo = 5;
-    this.player.x = STAND.x;
-    this.player.z = STAND.z;
-    this.sling.setBasis(STAND.x, STAND.z, this.headPos(this.head));
+    this.sling.setBasis(this.player.x, this.player.z, this.headPos(this.head));
     this.sling.reset();
     this.player.p.sling = true;
     this.hud.aim(AVISOS.apuntar);
@@ -345,7 +398,7 @@ export class Game {
   }
 
   private hitsBody = (p: THREE.Vector3): boolean => {
-    const gy = H(GOLIAT_POS.x, GOLIAT_POS.z), dx = p.x - GOLIAT_POS.x, dz = p.z - GOLIAT_POS.z;
+    const gy = H(this.gpos.x, this.gpos.z), dx = p.x - this.gpos.x, dz = p.z - this.gpos.z;
     return p.y > gy && p.y < gy + 1.8 * GOLIAT_SCALE && dx * dx + dz * dz < 1.05 * 1.05;
   };
 
@@ -390,7 +443,8 @@ export class Game {
     if (k >= 1 && !c.landed) {
       c.landed = true;
       this.shake = 0.6;
-      const gx = GOLIAT_POS.x - 3.5, gz = GOLIAT_POS.z;
+      // Cae hacia adelante, del lado de David.
+      const gx = this.gpos.x + Math.sin(this.gyaw) * 3.5, gz = this.gpos.z + Math.cos(this.gyaw) * 3.5;
       this.fx.dust(gx, H(gx, gz) + 0.3, gz, 40, 2.2);
     }
     if (c.t > 2.2 && !c.spoke) {
@@ -420,15 +474,21 @@ export class Game {
       const d = Math.hypot(n.x - this.player.x, n.z - this.player.z);
       if (d < 3.2 && d < bd) { bd = d; best = { id: n.id, name: n.name, x: n.x, z: n.z, big: false }; }
     }
-    const dg = Math.hypot(GOLIAT_POS.x - this.player.x, GOLIAT_POS.z - this.player.z);
-    if (!this.S.won && dg < 8.5 && dg < bd + 2) best = { id: 'goliat', name: 'Goliat', x: GOLIAT_POS.x, z: GOLIAT_POS.z, big: true };
+    for (const s of this.stones) {
+      if (!s.grp.visible) continue;
+      const d = Math.hypot(s.x - this.player.x, s.z - this.player.z);
+      if (d < PICK_R && d < bd + 1) { bd = d; best = { id: 'piedra', name: 'Piedra lisa', x: s.x, z: s.z, big: false, stone: s }; }
+    }
+    const dg = Math.hypot(this.gpos.x - this.player.x, this.gpos.z - this.player.z);
+    if (!this.S.won && dg < 8.5 && dg < bd + 2) best = { id: 'goliat', name: 'Goliat', x: this.gpos.x, z: this.gpos.z, big: true };
     return best;
   }
 
   private updateUi(): void {
     const m = this.mode, open = this.dialog.open;
     this.near = m === 'explore' && !open ? this.findNear() : null;
-    const verb = this.near ? (this.near.big && this.S.stones >= 5 ? 'Enfrentar' : 'Hablar') : null;
+    const n = this.near;
+    const verb = !n ? null : n.id === 'piedra' ? 'Recoger' : n.big && this.S.stones >= 5 ? 'Enfrentar' : 'Hablar';
     let label: string | null = null;
     if (open) label = 'Seguir';
     else if (m === 'aim') label = this.sling.flying ? null : 'Lanzar';
@@ -437,7 +497,7 @@ export class Game {
     this.hud.joystick(m === 'explore' && !open);
 
     if (!this.near || !verb) { this.hud.hidePrompt(); return; }
-    const v = this.tmp.set(this.near.x, H(this.near.x, this.near.z) + (this.near.big ? 4.6 : 2.85), this.near.z).project(this.camera);
+    const v = this.tmp.set(this.near.x, H(this.near.x, this.near.z) + (this.near.big ? 4.6 : this.near.id === 'piedra' ? 0.9 : 2.85), this.near.z).project(this.camera);
     if (v.z > 1) { this.hud.hidePrompt(); return; }
     this.hud.prompt(((v.x + 1) / 2) * this.stage.clientWidth, ((1 - v.y) / 2) * this.stage.clientHeight, this.near.name, verb);
   }
@@ -454,7 +514,7 @@ export class Game {
   private updateCamera(rdt: number): void {
     if (this.mode === 'title') return this.titleCamera(rdt);
     const sl = this.sling;
-    if (this.mode === 'aim' || this.mode === 'cutscene') {
+    if (this.mode === 'approach' || this.mode === 'aim' || this.mode === 'cutscene') {
       // Por encima del hombro derecho de David, mirando la frente del gigante.
       this.camPos.copy(sl.hand).addScaledVector(sl.forward, -4.4).addScaledVector(sl.right, 1.9);
       this.camPos.y += 1.1;
@@ -494,6 +554,9 @@ export class Game {
       action: () => self.action(),
       talk: (id: Target['id']) => self.talk({ id, name: '', x: 0, z: 0, big: id === 'goliat' }),
       teleport: (x: number, z: number) => { self.player.x = x; self.player.z = z; },
+      get goliat() { return { ...self.gpos }; },
+      get player() { return { x: self.player.x, z: self.player.z }; },
+      stones: () => self.stones.map((s) => ({ x: s.x, z: s.z, visible: s.grp.visible })),
       aimAt: (yaw: number, pitch: number) => { self.sling.yaw = yaw; self.sling.pitch = pitch; },
       solve: () => self.sling.solve(),
       throwStone: () => self.throwStone(),
